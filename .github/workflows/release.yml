@@ -9,11 +9,12 @@ permissions:
   contents: write
 
 jobs:
-  # ── Test first — if tests fail, no release ──────────────────────────
+  # ── Test first — fail here = no release ────────────────────────────
   test:
     name: Test
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
@@ -25,7 +26,7 @@ jobs:
       - name: Run tests
         run: go test ./... -count=1 -race
 
-  # ── Build binaries for all platforms ───────────────────────────────
+  # ── Cross-compile for all platforms ────────────────────────────────
   build:
     name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
     needs: test
@@ -54,17 +55,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Build binary
+      - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: "0"
           GIT_COMMIT: ${{ github.sha }}
-          TAG_NAME: ${{ github.ref_name }}
         run: |
           BUILD_DATE="$(date -u +%Y-%m-%d)"
           MODULE="github.com/nicodolas/kashy/internal/version"
-
           go build \
             -ldflags="-s -w \
               -X ${MODULE}.GitCommit=${GIT_COMMIT:0:7} \
@@ -72,24 +71,23 @@ jobs:
             -o ${{ matrix.binary }} \
             ./cmd/kashy/
 
-      - name: Package into zip
+      - name: Package
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          TAG_NAME: ${{ github.ref_name }}
+          TAG: ${{ github.ref_name }}
         run: |
-          ASSET_NAME="kashy_${TAG_NAME}_${GOOS}_${GOARCH}.zip"
-          zip "$ASSET_NAME" ${{ matrix.binary }} README.md LICENSE
-          echo "ASSET_NAME=$ASSET_NAME" >> "$GITHUB_ENV"
+          zip "kashy_${TAG}_${GOOS}_${GOARCH}.zip" \
+            ${{ matrix.binary }} README.md LICENSE
 
       - name: Upload artifact
         uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
         with:
           name: kashy-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: "kashy_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          path: kashy_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
           retention-days: 1
 
-  # ── Create GitHub Release and upload all zips ──────────────────────
+  # ── Publish GitHub Release ──────────────────────────────────────────
   release:
     name: Create Release
     needs: build
@@ -97,16 +95,14 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806  # v4.1.9
         with:
           path: dist/
           merge-multiple: true
 
-      - name: Create GitHub Release
+      - name: Publish release
         uses: softprops/action-gh-release@e7a8f85e1c67a31e6ed99a94b41bd0b71bbee6b8  # v2.0.9
         with:
-          draft: false
-          prerelease: false
           fail_on_unmatched_files: true
           files: dist/*.zip
