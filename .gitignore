@@ -7,8 +7,8 @@
 Thumbs.db
 
 # ── Go build artifacts ────────────────────────────────────────────────────────
-kashy
-kashy.exe
+/kashy
+/kashy.exe
 *.exe
 *.exe~
 /vendor/
