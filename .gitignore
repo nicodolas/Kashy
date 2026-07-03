@@ -1,0 +1,26 @@
+# ── Secrets ──────────────────────────────────────────────────────────────────
+.env
+*.env.local
+
+# ── OS ───────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Go build artifacts ────────────────────────────────────────────────────────
+kashy
+kashy.exe
+*.exe
+*.exe~
+/vendor/
+coverage.out
+coverage.html
+
+# ── Kashy runtime state (generated, not source) ───────────────────────────────
+*.kashy/
+
+# ── Agent / IDE runtime dirs ─────────────────────────────────────────────────
+# These contain local machine config, session state, secrets, and cache.
+# They are machine-specific and must never be committed.
+.codex/
+.omx/
+.kiro/
