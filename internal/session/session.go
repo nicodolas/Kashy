@@ -152,8 +152,9 @@ func (s *Store) UpdateCost(model string, promptTok, compTok int, costUSD float64
 
 // TodayCostUSD sums the cost of all history entries from today (local date).
 // Used by daily_limit enforcement in the proxy.
+// Reads up to 10000 entries to ensure accuracy even for high-usage days.
 func (s *Store) TodayCostUSD() float64 {
-	entries, err := s.ReadHistory(500)
+	entries, err := s.ReadHistory(10000)
 	if err != nil || len(entries) == 0 {
 		return 0
 	}

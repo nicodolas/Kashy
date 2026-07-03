@@ -25,6 +25,13 @@ func Serve(store *session.Store) error {
 // ServeWithKey starts the MCP server with an optional OpenRouter API key
 // for direct account queries (kashy_budget_remaining, kashy_account_usage).
 func ServeWithKey(store *session.Store, apiKey string) error {
+	s := buildServer(store, apiKey)
+	return server.ServeStdio(s)
+}
+
+// buildServer constructs the MCP server and registers all tools.
+// Separated from ServeWithKey to allow unit testing without blocking on stdio.
+func buildServer(store *session.Store, apiKey string) *server.MCPServer {
 	s := server.NewMCPServer(
 		"Kashy",
 		"0.1.0",
@@ -131,8 +138,8 @@ func ServeWithKey(store *session.Store, apiKey string) error {
 		},
 	)
 
-	// ─── kashy_budget_remaining ───────────────────────────────────────────
-	// Queries OpenRouter API directly for real account credit balance.
+	// ─── kashy_budget_remaining + kashy_account_usage ─────────────────────
+	// Only registered when an API key is provided.
 	if apiKey != "" {
 		orClient := openrouter.New(apiKey)
 
@@ -163,6 +170,5 @@ func ServeWithKey(store *session.Store, apiKey string) error {
 		)
 	}
 
-	return server.ServeStdio(s)
+	return s
 }
-

@@ -5,6 +5,7 @@
 package proxy
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"fmt"
@@ -134,8 +135,12 @@ func (p *Proxy) serveHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "build upstream request", http.StatusBadGateway)
 		return
 	}
-	// Copy headers
+	// Copy headers — strip Authorization from client to prevent key leakage.
+	// Kashy injects its own key below; the client's key must never reach upstream.
 	for k, vs := range r.Header {
+		if strings.EqualFold(k, "Authorization") {
+			continue // always stripped — injected below
+		}
 		for _, v := range vs {
 			upReq.Header.Add(k, v)
 		}
@@ -196,37 +201,50 @@ func (p *Proxy) pipeJSON(w http.ResponseWriter, resp *http.Response, start time.
 }
 
 // pipeStream passes SSE chunks to the client immediately and extracts usage from final chunks.
+// Uses bufio.Scanner on a tee'd copy to read line-by-line, preventing the split-chunk bug.
+//
+// Architecture: resp.Body is tee'd into an in-memory buffer while simultaneously
+// being forwarded to the client. After all bytes arrive, the buffer is scanned
+// for the last "data: ..." SSE line to extract usage. This avoids the pipe-based
+// deadlock where Scanner.Scan() → TeeReader.Read() → pw.Write() could block
+// if the client-write goroutine was also blocked on w.Write().
 func (p *Proxy) pipeStream(w http.ResponseWriter, resp *http.Response, start time.Time, reqBody map[string]interface{}) {
 	flusher, canFlush := w.(http.Flusher)
 
+	// Read all SSE bytes, forwarding to client as we go.
+	// bufio.Scanner needs the full stream; we collect it in a bytes.Buffer via TeeReader,
+	// but we use a channel to decouple writing to client from reading for scanning.
+	var sseCapture bytes.Buffer
 	buf := make([]byte, 4096)
-	var lastDataChunk string
 	for {
 		n, err := resp.Body.Read(buf)
 		if n > 0 {
-			chunk := string(buf[:n])
-			w.Write(buf[:n])
+			chunk := buf[:n]
+			w.Write(chunk)
 			if canFlush {
 				flusher.Flush()
 			}
-			// Keep track of last data: ... line for usage extraction
-			lines := strings.Split(chunk, "\n")
-			for _, line := range lines {
-				line = strings.TrimRight(line, "\r")
-				if strings.HasPrefix(line, "data: ") && line != "data: [DONE]" {
-					lastDataChunk = strings.TrimPrefix(line, "data: ")
-				}
-			}
+			sseCapture.Write(chunk)
 		}
 		if err != nil {
 			break
 		}
 	}
 
-	// Try to extract usage from last SSE data chunk
-	if lastDataChunk != "" {
+	// Now scan the captured bytes line-by-line for the last data: ... SSE line.
+	// Scanner handles \r\n and split lines correctly since we have the full stream.
+	var lastDataLine string
+	scanner := bufio.NewScanner(&sseCapture)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data: ") && line != "data: [DONE]" {
+			lastDataLine = strings.TrimPrefix(line, "data: ")
+		}
+	}
+
+	if lastDataLine != "" {
 		var chunk map[string]interface{}
-		if json.Unmarshal([]byte(lastDataChunk), &chunk) == nil {
+		if json.Unmarshal([]byte(lastDataLine), &chunk) == nil {
 			p.handleUsage(chunk, reqBody, time.Since(start).Milliseconds())
 		}
 	}

@@ -13,8 +13,23 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
+
+// sharedClient is a package-level HTTP client reused across LLM review calls.
+// Avoids creating a new client per call and enables connection pooling.
+var (
+	sharedClient     *http.Client
+	sharedClientOnce sync.Once
+)
+
+func getHTTPClient() *http.Client {
+	sharedClientOnce.Do(func() {
+		sharedClient = &http.Client{Timeout: 30 * time.Second}
+	})
+	return sharedClient
+}
 
 // Verdict is the outcome of a verification pass.
 type Verdict string
@@ -139,7 +154,10 @@ FAIL = change has significant bugs, spec violations, or security issues`, req.Ta
 		},
 		"max_tokens": 300,
 	}
-	body, _ := json.Marshal(payload)
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return "", "", fmt.Errorf("marshal request: %w", err)
+	}
 
 	httpReq, err := http.NewRequest("POST", req.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
@@ -150,7 +168,7 @@ FAIL = change has significant bugs, spec violations, or security issues`, req.Ta
 		httpReq.Header.Set("Authorization", "Bearer "+req.APIKey)
 	}
 
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := getHTTPClient()
 	resp, err := client.Do(httpReq)
 	if err != nil {
 		return "", "", fmt.Errorf("llm request: %w", err)
