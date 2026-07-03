@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Test first — if tests fail, no release ──────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Run tests
+        run: go test ./... -count=1 -race
+
+  # ── Build binaries for all platforms ───────────────────────────────
+  build:
+    name: Build (${{ matrix.goos }}/${{ matrix.goarch }})
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            binary: kashy.exe
+          - goos: linux
+            goarch: amd64
+            binary: kashy
+          - goos: darwin
+            goarch: amd64
+            binary: kashy
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          GIT_COMMIT: ${{ github.sha }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          BUILD_DATE="$(date -u +%Y-%m-%d)"
+          MODULE="github.com/nicodolas/kashy/internal/version"
+
+          go build \
+            -ldflags="-s -w \
+              -X ${MODULE}.GitCommit=${GIT_COMMIT:0:7} \
+              -X ${MODULE}.BuildDate=${BUILD_DATE}" \
+            -o ${{ matrix.binary }} \
+            ./cmd/kashy/
+
+      - name: Package into zip
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          ASSET_NAME="kashy_${TAG_NAME}_${GOOS}_${GOARCH}.zip"
+          zip "$ASSET_NAME" ${{ matrix.binary }} README.md LICENSE
+          echo "ASSET_NAME=$ASSET_NAME" >> "$GITHUB_ENV"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882  # v4.4.3
+        with:
+          name: kashy-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: "kashy_${{ github.ref_name }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          retention-days: 1
+
+  # ── Create GitHub Release and upload all zips ──────────────────────
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806  # v4.1.9
+        with:
+          path: dist/
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@e7a8f85e1c67a31e6ed99a94b41bd0b71bbee6b8  # v2.0.9
+        with:
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: dist/*.zip
