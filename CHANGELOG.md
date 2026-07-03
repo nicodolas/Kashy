@@ -11,6 +11,29 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [1.1.0] — 2026-07-03
+
+### Added
+- **`kashy update`** — self-update command: checks GitHub Releases and replaces binary in-place
+- **Update check on start** — `kashy start` checks for newer version (3s timeout, non-blocking on error) and prints notice
+- **`kashy stop`** — now actually stops the running daemon via pidfile (previously just printed instructions)
+- **`internal/daemon`** — pidfile management package for process lifecycle
+- **`internal/updater`** — update checker and self-update package (11 tests)
+- **`internal/mcpserver` tests** — 9 new tests via `buildServer()` extracted for testability
+
+### Fixed
+- **SSE streaming deadlock** — `pipeStream` replaced `io.Pipe` + `TeeReader` + goroutine with simple sequential read-and-capture, eliminating potential deadlock under slow clients
+- **Authorization header leak** — proxy now strips client `Authorization` header before forwarding; only Kashy's own API key reaches upstream
+- **`json.Marshal` error ignored** — `verify.LLMReview` now returns error if marshal fails
+- **`TodayCostUSD` undercount** — increased history read limit from 500 to 10 000 entries for accurate daily cost enforcement
+- **HTTP client per LLM call** — `verify.LLMReview` now uses a shared singleton client instead of creating a new one per call
+
+### Changed
+- **`cmd/kashy/main.go` refactored** — split into `cmd_start.go`, `cmd_status.go`, `cmd_balance.go`, `cmd_config.go`, `cmd_doctor.go`, `cmd_mcp.go`, `cmd_update.go`
+- **Test suite** — 111 tests across all packages
+
+---
+
 ## [1.0.0] — 2026-07-02
 
 ### Added

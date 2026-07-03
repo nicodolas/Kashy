@@ -14,6 +14,7 @@ import (
 	"github.com/nicodolas/kashy/internal/provider"
 	"github.com/nicodolas/kashy/internal/proxy"
 	"github.com/nicodolas/kashy/internal/session"
+	"github.com/nicodolas/kashy/internal/updater"
 	"github.com/nicodolas/kashy/internal/version"
 	"github.com/spf13/cobra"
 )
@@ -29,6 +30,12 @@ Any AI agent pointing to http://localhost:4000/v1 will have its
 costs tracked in real time with configurable budget limits.`,
 		Run: func(cmd *cobra.Command, args []string) {
 			migrateFromNico()
+
+			// Check for updates before starting — timeout 3s, never blocks startup
+			if result, err := updater.CheckLatest(version.String()); err == nil && result.Available {
+				fmt.Printf("[kashy] ✨ v%s → %s available! Run: kashy update\n",
+					version.String(), result.Version)
+			}
 
 			cfg := kashyconfig.Load()
 			apiKey := cfg.Providers.OpenRouter.APIKey

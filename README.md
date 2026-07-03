@@ -98,6 +98,7 @@ kashy balance    # live OpenRouter account balance
 | `kashy status` | Current session spending + ASCII budget bar |
 | `kashy history` | Spending grouped by day (last 30 days) |
 | `kashy balance` | Live OpenRouter usage: today / week / month |
+| `kashy update` | Update Kashy to the latest version |
 | `kashy config set-key <key>` | Set OpenRouter API key |
 | `kashy config set-budget <usd>` | Set session hard-stop budget (USD) |
 | `kashy config show` | Show current configuration |
@@ -186,20 +187,6 @@ When the session budget is reached, Kashy returns HTTP 429 immediately — the L
 
 ---
 
-## Building from source
-
-```bash
-# Run tests
-go test ./...
-
-# Build
-make build
-
-# Release (bumps version, builds binary)
-make release V=1.1.0
-```
-
----
 
 ## License
 

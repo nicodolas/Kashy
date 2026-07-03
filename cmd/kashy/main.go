@@ -24,6 +24,7 @@ func main() {
 		cmdConfig(),
 		cmdDoctor(),
 		cmdMCP(),
+		cmdUpdate(),
 	)
 
 	if err := rootCmd.Execute(); err != nil {

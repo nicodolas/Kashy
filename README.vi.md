@@ -98,6 +98,7 @@ kashy balance    # số dư tài khoản OpenRouter thời gian thực
 | `kashy status` | Chi phí phiên hiện tại + thanh ngân sách ASCII |
 | `kashy history` | Chi phí theo ngày (30 ngày gần nhất) |
 | `kashy balance` | Chi tiêu OpenRouter thời gian thực: hôm nay / tuần / tháng |
+| `kashy update` | Cập nhật Kashy lên phiên bản mới nhất |
 | `kashy config set-key <key>` | Đặt OpenRouter API key |
 | `kashy config set-budget <usd>` | Đặt giới hạn hard-stop theo phiên (USD) |
 | `kashy config show` | Hiện cấu hình hiện tại |
@@ -183,21 +184,6 @@ AI Agent của bạn
 ```
 
 Khi ngân sách phiên bị vượt, Kashy trả HTTP 429 ngay lập tức — LLM không bao giờ được gọi, nên bạn không tốn thêm tiền.
-
----
-
-## Build từ source
-
-```bash
-# Chạy tests
-go test ./...
-
-# Build
-make build
-
-# Release (bump version, build binary)
-make release V=1.1.0
-```
 
 ---
 
