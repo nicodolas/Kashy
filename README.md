@@ -18,17 +18,21 @@ Solo developers using BYOK (Bring Your Own Key) with OpenRouter or any OpenAI-co
 
 ## Install
 
-**Prerequisites:** [Go 1.21+](https://go.dev/dl/)
+### Option A — Download pre-built binary (recommended)
 
-```bash
-git clone https://github.com/nicodolas/kashy
-cd kashy
-go build -o kashy ./cmd/kashy/        # Linux / macOS
-go build -o kashy.exe ./cmd/kashy/    # Windows
-```
+Go to [Releases](https://github.com/nicodolas/kashy/releases/latest) and download the zip for your platform:
 
-**Add to PATH (Windows PowerShell):**
+| Platform | File |
+|---|---|
+| Windows | `kashy_vX.Y.Z_windows_amd64.zip` |
+| macOS | `kashy_vX.Y.Z_darwin_amd64.zip` |
+| Linux | `kashy_vX.Y.Z_linux_amd64.zip` |
+
+Extract and add to PATH:
+
+**Windows (PowerShell):**
 ```powershell
+# Extract kashy.exe from the zip, then:
 $bin = "$env:USERPROFILE\bin"
 New-Item -ItemType Directory -Force -Path $bin | Out-Null
 Copy-Item kashy.exe "$bin\kashy.exe"
@@ -39,10 +43,30 @@ if ($p -notlike "*$bin*") {
 # Reopen terminal, then: kashy --version
 ```
 
-**Add to PATH (Linux / macOS):**
+**Linux / macOS:**
 ```bash
+unzip kashy_vX.Y.Z_*.zip
 sudo mv kashy /usr/local/bin/
 kashy --version
+```
+
+### Option B — Build from source
+
+**Prerequisites:** [Go 1.21+](https://go.dev/dl/)
+
+```bash
+git clone https://github.com/nicodolas/kashy
+cd kashy
+go build -o kashy ./cmd/kashy/        # Linux / macOS
+go build -o kashy.exe ./cmd/kashy/    # Windows
+```
+
+### Updating
+
+Once installed, update to the latest version with:
+
+```bash
+kashy update
 ```
 
 ---
@@ -122,6 +146,32 @@ Add Kashy as an MCP tool server so your agent can query cost data directly:
   }
 }
 ```
+
+### Kiro setup
+
+1. Open `~/.kiro/settings/mcp.json` (create if missing)
+2. Add the kashy entry:
+
+```json
+{
+  "mcpServers": {
+    "kashy": {
+      "type": "stdio",
+      "command": "kashy",
+      "args": ["mcp"],
+      "autoApprove": [
+        "kashy_cost_status",
+        "kashy_cost_history",
+        "kashy_verify_done",
+        "kashy_reset_budget"
+      ]
+    }
+  }
+}
+```
+
+3. Reload Kiro MCP servers (Command Palette → "MCP: Restart Servers")
+4. Verify connection: `kashy doctor`
 
 **Available MCP tools:**
 

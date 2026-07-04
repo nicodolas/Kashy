@@ -1,0 +1,13 @@
+{
+    "identifier": "default",
+    "description": "Default capabilities for Kashy UI",
+    "windows": [
+        "main"
+    ],
+    "permissions": [
+        "core:default",
+        "shell:allow-spawn",
+        "shell:allow-kill",
+        "shell:deny-execute"
+    ]
+}

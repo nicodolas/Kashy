@@ -1,0 +1,109 @@
+name: Release UI
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: write
+
+jobs:
+  build-tauri:
+    name: Build Tauri (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            kashy_bin: kashy.exe
+            kashy_goos: windows
+            kashy_goarch: amd64
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            kashy_bin: kashy
+            kashy_goos: darwin
+            kashy_goarch: arm64
+          - platform: ubuntu-24.04
+            target: x86_64-unknown-linux-gnu
+            kashy_bin: kashy
+            kashy_goos: linux
+            kashy_goarch: amd64
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      # ── Build kashy sidecar ─────────────────────────────────────────
+      - uses: actions/setup-go@3041bf56c941b39c61721a86cd11f3bb1338122a  # v5.2.0
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build kashy sidecar
+        env:
+          GOOS: ${{ matrix.kashy_goos }}
+          GOARCH: ${{ matrix.kashy_goarch }}
+          CGO_ENABLED: "0"
+          GIT_COMMIT: ${{ github.sha }}
+          TARGET: ${{ matrix.target }}
+          KASHY_BIN: ${{ matrix.kashy_bin }}
+        run: |
+          BUILD_DATE=$(date -u +%Y-%m-%d)
+          MODULE="github.com/nicodolas/kashy/internal/version"
+          mkdir -p kashy-ui/src-tauri/binaries
+          if [ "$KASHY_BIN" = "kashy.exe" ]; then
+            OUT="kashy-ui/src-tauri/binaries/kashy-${TARGET}.exe"
+          else
+            OUT="kashy-ui/src-tauri/binaries/kashy-${TARGET}"
+          fi
+          go build \
+            -ldflags="-s -w -X ${MODULE}.GitCommit=${GIT_COMMIT:0:7} -X ${MODULE}.BuildDate=${BUILD_DATE}" \
+            -o "$OUT" \
+            ./cmd/kashy/
+        shell: bash
+
+      # ── Linux system deps ───────────────────────────────────────────
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-24.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      # ── Node ────────────────────────────────────────────────────────
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af  # v4.1.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: kashy-ui/package-lock.json
+
+      - name: Install npm dependencies
+        run: npm ci
+        working-directory: kashy-ui
+
+      # ── Rust ────────────────────────────────────────────────────────
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@82a92a6e8fbeee089604da2575dc567ae9ddeaab  # v2.7.5
+        with:
+          workspaces: kashy-ui/src-tauri -> target
+
+      # ── Build + publish Tauri release ───────────────────────────────
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: kashy-ui
+          tagName: ${{ github.ref_name }}
+          releaseName: Kashy ${{ github.ref_name }}
+          releaseBody: |
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+          releaseDraft: false
+          prerelease: false
+          args: --target ${{ matrix.target }}

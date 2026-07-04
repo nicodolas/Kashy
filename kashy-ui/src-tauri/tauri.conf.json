@@ -1,0 +1,47 @@
+{
+    "productName": "Kashy",
+    "version": "0.1.0",
+    "identifier": "ai.kashy.app",
+    "build": {
+        "frontendDist": "../dist",
+        "devUrl": "http://localhost:1420",
+        "beforeDevCommand": "npm run dev",
+        "beforeBuildCommand": "npm run build"
+    },
+    "app": {
+        "windows": [
+            {
+                "label": "main",
+                "title": "Kashy · AI Spending Monitor",
+                "width": 960,
+                "height": 680,
+                "minWidth": 720,
+                "minHeight": 500,
+                "resizable": true,
+                "fullscreen": false
+            }
+        ],
+        "security": {
+            "csp": "default-src 'self'; connect-src 'self' http://localhost:4001; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+        }
+    },
+    "bundle": {
+        "active": true,
+        "targets": "all",
+        "icon": [
+            "icons/32x32.png",
+            "icons/128x128.png",
+            "icons/128x128@2x.png",
+            "icons/icon.icns",
+            "icons/icon.ico"
+        ],
+        "externalBin": [
+            "binaries/kashy"
+        ]
+    },
+    "plugins": {
+        "shell": {
+            "open": false
+        }
+    }
+}

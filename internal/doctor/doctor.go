@@ -25,7 +25,9 @@ func Check() []AgentStatus {
 	var results []AgentStatus
 	results = append(results, checkOMX()...)
 	results = append(results, checkOpenCode()...)
+	results = append(results, checkKiro()...)
 	results = append(results, checkClaudeCode()...)
+	results = append(results, checkAntigravity()...)
 	return results
 }
 
@@ -96,27 +98,36 @@ func checkOpenCode() []AgentStatus {
 	}}
 }
 
-// checkClaudeCode checks Claude Code settings for openAiBaseUrl, or Kiro MCP config for kashy server.
+// checkKiro checks Kiro MCP config for kashy server registration.
+func checkKiro() []AgentStatus {
+	home, _ := os.UserHomeDir()
+	kiroMCP := filepath.Join(home, ".kiro", "settings", "mcp.json")
+	data, err := os.ReadFile(kiroMCP)
+	if err != nil {
+		return []AgentStatus{{
+			Name:       "Kiro (MCP)",
+			ConfigFile: "(not found)",
+			Connected:  false,
+			Details:    "mcp.json not found in ~/.kiro/settings/",
+		}}
+	}
+	connected := strings.Contains(string(data), "kashy.exe") || strings.Contains(string(data), `"kashy"`)
+	detail := "Kashy MCP server not found in mcp.json"
+	if connected {
+		detail = "Kashy MCP server registered ✓"
+	}
+	return []AgentStatus{{
+		Name:       "Kiro (MCP)",
+		ConfigFile: kiroMCP,
+		Connected:  connected,
+		Details:    detail,
+	}}
+}
+
+// checkClaudeCode checks Claude Code settings.json for openAiBaseUrl pointing to proxy.
 func checkClaudeCode() []AgentStatus {
 	home, _ := os.UserHomeDir()
 
-	// Check Kiro MCP config first
-	kiroMCP := filepath.Join(home, ".kiro", "settings", "mcp.json")
-	if data, err := os.ReadFile(kiroMCP); err == nil {
-		connected := strings.Contains(string(data), "kashy.exe") || strings.Contains(string(data), `"kashy"`)
-		detail := "Kashy MCP server not found in mcp.json"
-		if connected {
-			detail = "Kashy MCP server registered ✓"
-		}
-		return []AgentStatus{{
-			Name:       "Kiro (MCP)",
-			ConfigFile: kiroMCP,
-			Connected:  connected,
-			Details:    detail,
-		}}
-	}
-
-	// Fallback: Claude Code settings.json with openAiBaseUrl
 	var settingsPath string
 	switch runtime.GOOS {
 	case "windows":
@@ -130,7 +141,7 @@ func checkClaudeCode() []AgentStatus {
 	data, err := os.ReadFile(settingsPath)
 	if err != nil {
 		return []AgentStatus{{
-			Name:       "Claude Code / Kiro",
+			Name:       "Claude Code",
 			ConfigFile: "(not found)",
 			Connected:  false,
 			Details:    "settings.json not found",
@@ -140,6 +151,44 @@ func checkClaudeCode() []AgentStatus {
 	connected := strings.Contains(string(data), "localhost:4000")
 	return []AgentStatus{{
 		Name:       "Claude Code",
+		ConfigFile: settingsPath,
+		Connected:  connected,
+		Details:    pointsToProxy(string(data)),
+	}}
+}
+
+// checkAntigravity checks Antigravity IDE settings.json for openai.baseURL pointing to proxy.
+// Antigravity is a VS Code fork; config location mirrors VS Code's User/settings.json path.
+func checkAntigravity() []AgentStatus {
+	home, _ := os.UserHomeDir()
+
+	var settingsPath string
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		settingsPath = filepath.Join(appData, "Antigravity", "User", "settings.json")
+	case "darwin":
+		settingsPath = filepath.Join(home, "Library", "Application Support", "Antigravity", "User", "settings.json")
+	default:
+		settingsPath = filepath.Join(home, ".config", "Antigravity", "User", "settings.json")
+	}
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return []AgentStatus{{
+			Name:       "Antigravity IDE",
+			ConfigFile: "(not found)",
+			Connected:  false,
+			Details:    "settings.json not found — install Antigravity or create the config",
+		}}
+	}
+
+	connected := strings.Contains(string(data), "localhost:4000")
+	return []AgentStatus{{
+		Name:       "Antigravity IDE",
 		ConfigFile: settingsPath,
 		Connected:  connected,
 		Details:    pointsToProxy(string(data)),

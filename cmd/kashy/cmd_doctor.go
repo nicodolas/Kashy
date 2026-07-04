@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/nicodolas/kashy/internal/doctor"
@@ -61,6 +63,42 @@ func applyFixes() {
 		fmt.Printf("[kashy] ℹ️  Kiro MCP: already managed. Run 'kashy mcp' for MCP server config.\n")
 	}
 
+	// Fix Antigravity IDE — settings.json with openai.baseURL
+	var antigravitySettings string
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		antigravitySettings = filepath.Join(appData, "Antigravity", "User", "settings.json")
+	case "darwin":
+		antigravitySettings = filepath.Join(home, "Library", "Application Support", "Antigravity", "User", "settings.json")
+	default:
+		antigravitySettings = filepath.Join(home, ".config", "Antigravity", "User", "settings.json")
+	}
+	if err := patchAntigravitySettings(antigravitySettings, proxyURL); err == nil {
+		fmt.Printf("[kashy] ✅ Patched Antigravity settings: %s\n", antigravitySettings)
+	}
+
+	// Fix Claude Code — settings.json with openAiBaseUrl
+	var claudeSettings string
+	switch runtime.GOOS {
+	case "windows":
+		appData := os.Getenv("APPDATA")
+		if appData == "" {
+			appData = filepath.Join(home, "AppData", "Roaming")
+		}
+		claudeSettings = filepath.Join(appData, "Claude", "settings.json")
+	case "darwin":
+		claudeSettings = filepath.Join(home, "Library", "Application Support", "Claude", "settings.json")
+	default:
+		claudeSettings = filepath.Join(home, ".config", "claude", "settings.json")
+	}
+	if err := patchJSONSettings(claudeSettings, "openAiBaseUrl", proxyURL); err == nil {
+		fmt.Printf("[kashy] ✅ Patched Claude Code settings: %s\n", claudeSettings)
+	}
+
 	fmt.Println("[kashy] Run 'kashy doctor' to verify connections.")
 }
 
@@ -89,4 +127,35 @@ func migrateFromNico() {
 		return
 	}
 	fmt.Println("[kashy] ℹ️  Migrated config from ~/.nico/ — you're all set.")
+}
+
+// patchJSONSettings reads a JSON settings file, sets key=value, and writes back.
+// Idempotent: skips if the key already has the correct value.
+// Creates the file (and parent dirs) if it doesn't exist.
+func patchJSONSettings(path, key, value string) error {
+	settings := map[string]interface{}{}
+
+	if data, err := os.ReadFile(path); err == nil {
+		_ = json.Unmarshal(data, &settings)
+	}
+
+	if cur, ok := settings[key].(string); ok && strings.Contains(cur, "localhost:4000") {
+		return nil // already correct
+	}
+
+	settings[key] = value
+
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, out, 0644)
+}
+
+// patchAntigravitySettings patches "openai.baseURL" in Antigravity settings.json.
+func patchAntigravitySettings(path, proxyURL string) error {
+	return patchJSONSettings(path, "openai.baseURL", proxyURL)
 }

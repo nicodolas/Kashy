@@ -11,6 +11,23 @@ Versioning: [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ---
 
+## [1.2.0] — 2026-07-04
+
+### Added
+- **`kashy-ui`** — cross-platform Tauri v2 desktop app (React + TypeScript)
+  - Real-time session cost, token counts, call count
+  - Budget progress bar with warn/danger color thresholds
+  - Last 20 LLM calls history table
+  - Start/Stop proxy buttons via `kashy` CLI
+  - Reset budget button
+  - Auto-refresh every 3 seconds
+- **Agent detection expanded** — `kashy doctor` now detects 5 agents independently:
+  - OMX, OpenCode, Kiro (MCP), Claude Code, Antigravity IDE
+- **`kashy doctor --fix`** — patches Antigravity (`openai.baseURL`) and Claude Code (`openAiBaseUrl`) settings
+- **`patchJSONSettings`** helper — generic JSON settings patcher, reusable across agents
+
+---
+
 ## [1.1.0] — 2026-07-03
 
 ### Added

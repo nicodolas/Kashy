@@ -1,0 +1,30 @@
+{
+    "name": "kashy-ui",
+    "private": true,
+    "version": "0.1.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "tauri": "tauri",
+        "sidecar:win": "node -e \"const{execSync}=require('child_process');const path=require('path');require('fs').mkdirSync('binaries',{recursive:true});require('fs').copyFileSync(path.join(process.env.USERPROFILE,'bin','kashy.exe'),'binaries/kashy-x86_64-pc-windows-msvc.exe');console.log('sidecar copied')\"",
+        "sidecar:mac-arm": "mkdir -p binaries && cp $(which kashy) binaries/kashy-aarch64-apple-darwin",
+        "sidecar:mac-x64": "mkdir -p binaries && cp $(which kashy) binaries/kashy-x86_64-apple-darwin",
+        "sidecar:linux": "mkdir -p binaries && cp $(which kashy) binaries/kashy-x86_64-unknown-linux-gnu"
+    },
+    "dependencies": {
+        "@tauri-apps/api": "^2.0.0",
+        "@tauri-apps/plugin-shell": "^2.0.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
+    },
+    "devDependencies": {
+        "@tauri-apps/cli": "^2.0.0",
+        "@types/react": "^18.3.3",
+        "@types/react-dom": "^18.3.0",
+        "@vitejs/plugin-react": "^4.3.1",
+        "typescript": "^5.5.3",
+        "vite": "^5.4.0"
+    }
+}
